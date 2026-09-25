@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json.swell.store/content.json",
+  "collection": "orders",
+  "description": "Sendcloud parcel details on orders",
+  "fields": [
+    {
+      "id": "sendcloud_order_id",
+      "label": "Sendcloud order ID",
+      "type": "number",
+      "readonly": true
+    },
+    {
+      "id": "sendcloud_parcel_id",
+      "label": "Parcel ID",
+      "type": "number",
+      "readonly": true
+    },
+    {
+      "id": "sendcloud_status",
+      "label": "Status",
+      "type": "short_text",
+      "readonly": true
+    },
+    {
+      "id": "sendcloud_tracking_number",
+      "label": "Tracking number",
+      "type": "short_text",
+      "readonly": true
+    },
+    {
+      "id": "sendcloud_tracking_url",
+      "label": "Tracking page",
+      "type": "short_text",
+      "readonly": true
+    },
+    {
+      "id": "sendcloud_carrier",
+      "label": "Carrier",
+      "type": "short_text",
+      "readonly": true
+    },
+    {
+      "id": "sendcloud_error",
+      "label": "Error",
+      "type": "long_text",
+      "readonly": true
+    }
+  ],
+  "views": [
+    {
+      "id": "edit",
+      "tabs": [
+        {
+          "id": "sendcloud",
+          "label": "Sendcloud",
+          "fields": [
+            {
+              "type": "field_row",
+              "fields": [
+                {
+                  "id": "sendcloud_order_id",
+                  "admin_span": 2
+                },
+                {
+                  "id": "sendcloud_status",
+                  "admin_span": 2
+                }
+              ]
+            },
+            {
+              "type": "field_row",
+              "fields": [
+                {
+                  "id": "sendcloud_parcel_id",
+                  "admin_span": 2
+                },
+                {
+                  "id": "sendcloud_carrier",
+                  "admin_span": 2
+                }
+              ]
+            },
+            {
+              "type": "field_row",
+              "fields": [
+                {
+                  "id": "sendcloud_tracking_number",
+                  "admin_span": 4
+                }
+              ]
+            },
+            {
+              "id": "sendcloud_tracking_url"
+            },
+            {
+              "id": "sendcloud_error",
+              "conditions": {
+                "sendcloud_error": {
+                  "$exists": true
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

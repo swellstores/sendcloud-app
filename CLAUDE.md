@@ -1,0 +1,3 @@
+- **App ID:** sendcloud
+- **Project:** Swell integration app for Sendcloud (API v3 Orders; v2 parcel creation is blocked for newer accounts). Paid/submitted orders are upserted to Sendcloud Incoming Orders (`functions/order-events.ts`); the public `sendcloud-webhook` route receives `parcel_status_changed`, stores tracking on the order under `$app.sendcloud.*`, and creates the Swell shipment once a label exists.
+- **Tools:** Swell skills, Swell CLI, and senior agents for troubleshooting. Consult appropriate skill to ensure competent actions.

@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json.swell.store/model.json",
+  "collection": "orders",
+  "description": "Sendcloud parcel data stored on orders",
+  "fields": {
+    "sendcloud_order_id": {
+      "type": "int",
+      "description": "Sendcloud order ID (API v3)"
+    },
+    "sendcloud_parcel_id": {
+      "type": "int",
+      "description": "Sendcloud parcel ID"
+    },
+    "sendcloud_status_id": {
+      "type": "int",
+      "description": "Sendcloud parcel status ID"
+    },
+    "sendcloud_status": {
+      "type": "string",
+      "description": "Sendcloud parcel status message"
+    },
+    "sendcloud_tracking_number": {
+      "type": "string"
+    },
+    "sendcloud_tracking_url": {
+      "type": "string"
+    },
+    "sendcloud_carrier": {
+      "type": "string",
+      "description": "Sendcloud carrier code"
+    },
+    "sendcloud_shipment_id": {
+      "type": "objectid",
+      "description": "Swell shipment created from the Sendcloud label"
+    },
+    "sendcloud_error": {
+      "type": "string"
+    },
+    "sendcloud_status_timestamp": {
+      "type": "float",
+      "description": "Timestamp of the latest applied Sendcloud webhook, used to skip out-of-order updates"
+    }
+  }
+}

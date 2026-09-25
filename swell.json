@@ -1,0 +1,22 @@
+{
+  "description": "Send orders to Sendcloud",
+  "id": "sendcloud",
+  "name": "Sendcloud",
+  "type": "integration",
+  "version": "1.0.0",
+  "permissions": [],
+  "images": [
+    {
+      "id": "order-tab",
+      "title": "Sendcloud tab on orders",
+      "description": "Sendcloud order, parcel status and tracking on each order",
+      "image_src": "assets/screenshots/order-tab.png"
+    },
+    {
+      "id": "settings",
+      "title": "Settings",
+      "description": "Sendcloud credentials, sync options and the webhook URL",
+      "image_src": "assets/screenshots/settings.png"
+    }
+  ]
+}

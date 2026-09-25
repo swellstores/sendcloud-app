@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json.swell.store/setting.json",
+  "label": "Sendcloud",
+  "description": "Send orders to Sendcloud (API v3) and sync tracking back to Swell. Create an integration in Sendcloud → Settings → Integrations → Sendcloud API and set its webhook URL to the Webhook URL below.",
+  "fields": [
+    {
+      "id": "public_key",
+      "label": "Public Key",
+      "type": "short_text",
+      "required": true
+    },
+    {
+      "id": "secret_key",
+      "label": "Secret Key",
+      "type": "short_text",
+      "description": "Also used to verify the Sendcloud-Signature of incoming webhooks",
+      "required": true
+    },
+    {
+      "id": "integration_id",
+      "label": "Integration ID",
+      "type": "number",
+      "description": "ID of your Sendcloud API integration (shown in the integration's URL in the Sendcloud panel). Orders appear under this integration.",
+      "required": true
+    },
+    {
+      "id": "webhook_url",
+      "label": "Webhook URL",
+      "type": "short_text",
+      "readonly": true,
+      "description": "Copy this URL into your Sendcloud integration (Settings → Integrations → Sendcloud API → Webhook URL) and enable webhook feedback. Format: https://<store-id>.swell.store/api/functions/sendcloud/sendcloud-webhook"
+    },
+    {
+      "id": "webhook_signature_key",
+      "label": "Webhook Signature Key",
+      "type": "short_text",
+      "description": "Optional. Only if your Sendcloud integration shows a separate Webhook Signature Key; otherwise the Secret Key is used."
+    },
+    {
+      "id": "sync_on",
+      "label": "Send orders to Sendcloud when",
+      "type": "select",
+      "default": "paid",
+      "options": [
+        {
+          "value": "paid",
+          "label": "Order is paid"
+        },
+        {
+          "value": "submitted",
+          "label": "Order is submitted"
+        }
+      ]
+    },
+    {
+      "id": "shipping_option_code",
+      "label": "Default shipping option code",
+      "type": "short_text",
+      "description": "Optional. Preselects a Sendcloud shipping option on each order, e.g. postnl:standard"
+    },
+    {
+      "id": "default_weight",
+      "label": "Default parcel weight (kg)",
+      "type": "number",
+      "description": "Used when order items have no shipment weight",
+      "default": 1
+    },
+    {
+      "id": "create_fulfillment",
+      "label": "Create Swell shipment when label is created",
+      "type": "boolean",
+      "ui": "toggle",
+      "description": "Fulfills the order in Swell with the Sendcloud tracking number",
+      "default": true
+    },
+    {
+      "id": "enabled",
+      "label": "Enabled",
+      "type": "boolean",
+      "ui": "toggle",
+      "default": true
+    }
+  ]
+}
