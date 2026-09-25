@@ -2,7 +2,6 @@ import { describe, it, expect } from "vitest";
 import {
   buildOrder,
   getSignatureKey,
-  getWebhookUrl,
   splitAddress,
   toPythonJson,
   verifySignature,
@@ -85,20 +84,6 @@ describe("verifySignature", () => {
     expect(await verifySignature(body, signature, "other")).toBe(false);
     expect(await verifySignature(body, null, "sk")).toBe(false);
     expect(await verifySignature(body, signature, "")).toBe(false);
-  });
-});
-
-describe("getWebhookUrl", () => {
-  it("builds the public route URL", () => {
-    expect(getWebhookUrl("dev11", "sendcloud")).toBe(
-      "https://dev11.swell.store/api/functions/sendcloud/sendcloud-webhook",
-    );
-  });
-
-  it("falls back to the app slug when given an object id", () => {
-    expect(getWebhookUrl("dev11", "6ab533802133be8d2d755fb0")).toBe(
-      "https://dev11.swell.store/api/functions/sendcloud/sendcloud-webhook",
-    );
   });
 });
 

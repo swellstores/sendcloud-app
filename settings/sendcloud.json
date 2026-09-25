@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.swell.store/setting.json",
   "label": "Sendcloud",
-  "description": "Send orders to Sendcloud (API v3) and sync tracking back to Swell. Create an integration in Sendcloud → Settings → Integrations → Sendcloud API and set its webhook URL to the Webhook URL below.",
+  "description": "Send orders to Sendcloud (API v3) and sync tracking back to Swell. Create an integration in Sendcloud → Settings → Integrations → Sendcloud API and set its webhook URL using the pattern below.",
   "fields": [
     {
       "id": "public_key",
@@ -28,7 +28,9 @@
       "label": "Webhook URL",
       "type": "short_text",
       "readonly": true,
-      "description": "Copy this URL into your Sendcloud integration (Settings → Integrations → Sendcloud API → Webhook URL) and enable webhook feedback. Format: https://<store-id>.swell.store/api/functions/sendcloud/sendcloud-webhook"
+      "description": "Pattern of the webhook URL. Replace {store-id} with your store ID and {public-key} with your Swell public key, then paste it into Sendcloud → Settings → Integrations → Sendcloud API → Webhook URL and enable webhook feedback.",
+      "default": "https://{store-id}:{public-key}@{store-id}.swell.store/functions/sendcloud/sendcloud-webhook",
+      "placeholder": "https://{store-id}:{public-key}@{store-id}.swell.store/functions/sendcloud/sendcloud-webhook"
     },
     {
       "id": "webhook_signature_key",

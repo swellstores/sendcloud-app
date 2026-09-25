@@ -8,7 +8,6 @@ export interface SendcloudSettings {
   public_key?: string;
   secret_key?: string;
   integration_id?: number;
-  webhook_url?: string;
   webhook_signature_key?: string;
   sync_on?: 'paid' | 'submitted';
   shipping_option_code?: string;
@@ -97,14 +96,6 @@ export async function deleteOrder(settings: SendcloudSettings, sendcloudOrderId:
   await sendcloudRequest(settings, 'DELETE', `/orders/${sendcloudOrderId}`);
 }
 
-export const WEBHOOK_FUNCTION = 'sendcloud-webhook';
-
-// public URL of the sendcloud-webhook route function
-export function getWebhookUrl(storeId: string, appId: string): string {
-  const appSlug = /^[0-9a-f]{24}$/.test(appId) ? 'sendcloud' : appId;
-  return `https://${storeId}.swell.store/api/functions/${appSlug}/${WEBHOOK_FUNCTION}`;
-}
-
 // Sendcloud signs with the Secret Key, or a separate Webhook Signature Key for some integration types
 export function getSignatureKey(settings: SendcloudSettings): string {
   return settings.webhook_signature_key?.trim() || settings.secret_key?.trim() || '';
@@ -127,7 +118,7 @@ export function toPythonJson(value: unknown): string {
   }
   if (typeof value === 'string') {
     return JSON.stringify(value).replace(
-      /[\u0080-￿]/g,
+      /[\u0080-\uffff]/g,
       (char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, '0')}`,
     );
   }

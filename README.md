@@ -9,7 +9,7 @@ Send Swell orders to [Sendcloud](https://www.sendcloud.com) and get tracking bac
 - **Tracking back to Swell:** Sendcloud's `parcel_status_changed` webhook updates the order with the parcel status, tracking number, tracking link and carrier. Requests are verified with the `Sendcloud-Signature` HMAC header, and updates that arrive out of order are ignored.
 - **Fulfillment:** once a parcel has a label, the app creates a Swell shipment with the carrier and tracking number for everything still to be shipped. If the parcel is later canceled, that shipment is canceled too.
 - **Order tab:** a **Sendcloud** tab on the order page shows the Sendcloud order ID, status, parcel ID, carrier, tracking number, tracking link and the last error.
-- **Webhook URL in settings:** the webhook URL to paste into Sendcloud is shown in the app settings.
+- **Webhook URL pattern in settings:** the settings show the webhook URL pattern as a read-only value: `https://{store-id}:{public-key}@{store-id}.swell.store/functions/sendcloud/sendcloud-webhook`.
 
 ## Settings
 
@@ -20,7 +20,7 @@ All credentials and options are app settings (`settings/sendcloud.json`). Nothin
 | Public Key | yes | | Public key of your Sendcloud API integration. |
 | Secret Key | yes | | Secret key of the same integration. Also verifies webhook signatures. |
 | Integration ID | yes | | ID of the Sendcloud API integration. Orders are created under it. Shown at the end of the integration's URL in the Sendcloud panel. |
-| Webhook URL | read-only | | Filled in automatically. Copy it into the Sendcloud integration. |
+| Webhook URL | read-only | `https://{store-id}:{public-key}@{store-id}.swell.store/functions/sendcloud/sendcloud-webhook` | The URL pattern. Replace `{store-id}` and `{public-key}` before pasting it into Sendcloud. |
 | Webhook Signature Key | no | | Only if your Sendcloud integration shows a separate Webhook Signature Key. Otherwise the Secret Key is used. |
 | Send orders to Sendcloud when | no | Order is paid | `Order is paid` (`order.paid`) or `Order is submitted` (`order.submitted`). |
 | Default shipping option code | no | | Preselects a Sendcloud shipping option on each order, e.g. `postnl:standard`. |
@@ -32,7 +32,7 @@ All credentials and options are app settings (`settings/sendcloud.json`). Nothin
 
 1. In Sendcloud, go to **Settings → Integrations** and add a **Sendcloud API** integration. Copy its public and secret keys.
 2. Install the app in Swell and open its settings. Enter the **Public Key**, **Secret Key** and **Integration ID**.
-3. Copy the **Webhook URL** from the app settings. It looks like `https://<store-id>.swell.store/api/functions/sendcloud/sendcloud-webhook`. It's filled in within 5 minutes of installing the app.
+3. Build the webhook URL from the pattern in the app settings, `https://{store-id}:{public-key}@{store-id}.swell.store/functions/sendcloud/sendcloud-webhook`. Replace `{store-id}` with your store ID and `{public-key}` with your Swell public key (Developer → API keys). Use the live key for the live environment and the test key for test.
 4. In the Sendcloud integration, paste the URL into **Webhook URL**, turn on **webhook feedback**, and save. **Test API Webhook** should return 200.
 5. Place a test order and pay it. It should appear in Sendcloud's Incoming Orders, and its Sendcloud tab in Swell should show a Sendcloud order ID.
 6. Create a label in Sendcloud. The Swell order should get the tracking number and a shipment.
@@ -43,7 +43,6 @@ All credentials and options are app settings (`settings/sendcloud.json`). Nothin
 |---|---|---|
 | `functions/order-events.ts` | `order.submitted`, `order.paid`, `order.canceled` | Sends the order to Sendcloud on the event chosen in settings. Deletes the Sendcloud order on cancel. |
 | `functions/sendcloud-webhook.ts` | Public route, `POST` | Receives Sendcloud webhooks and updates the order and shipment. |
-| `functions/webhook-url.ts` | Cron, every 5 minutes | Writes the webhook URL into the read-only setting when it's missing or wrong. |
 | `functions/lib/sendcloud.ts` | Shared | Sendcloud API client, Swell order to Sendcloud order mapping, signature check. |
 
 Data stored on each order under `$app.sendcloud` (`models/orders.json`): `sendcloud_order_id`, `sendcloud_parcel_id`, `sendcloud_status_id`, `sendcloud_status`, `sendcloud_status_timestamp`, `sendcloud_tracking_number`, `sendcloud_tracking_url`, `sendcloud_carrier`, `sendcloud_shipment_id`, `sendcloud_error`.
@@ -80,7 +79,7 @@ swell logs --type function -s sendcloud
 - **Integration tests** (`test/integration/`) are read-only and use your `swell login` session against the test store.
 - **CLI test scaffold:** it pins `vitest` 3.2 but asks for the latest `@cloudflare/vitest-pool-workers`, which now needs vitest 4. The pool is pinned to `~0.12.21`, the last version that works with vitest 3.2.
 - **Public route URL:** the webhook only responds after `swell app push`. Under `swell app dev` it isn't reachable publicly.
-- **Webhook URL:** Sendcloud reaches the route at `https://<store-id>:<public key>@<store-id>.swell.store/functions/sendcloud/sendcloud-webhook`. That's the store host, with no `/api`, and the key in the URL. Without a key the request returns 404.
+- **Webhook URL:** Sendcloud reaches the route at `https://{store-id}:{public-key}@{store-id}.swell.store/functions/sendcloud/sendcloud-webhook`. That's the store host, with no `/api`, and the key in the URL. Without a key the request returns 404.
 - **Webhook signatures:** the platform doesn't pass the original request bytes to the function. `req.rawBody` arrives re-serialized as `JSON.stringify(body, null, 2)`. So the handler also checks the signature against the parsed body serialized the way Python's `json.dumps()` does it (`toPythonJson`), and against compact JSON. It logs which one matched. Numbers that Sendcloud sends as floats with a trailing `.0` can't be rebuilt exactly and would fail verification.
 
 Listing assets: `assets/icon.png` and `assets/screenshots/*.png` are placeholders, referenced from `images` in `swell.json`.
