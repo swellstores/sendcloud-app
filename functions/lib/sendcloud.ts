@@ -110,6 +110,30 @@ export function getSignatureKey(settings: SendcloudSettings): string {
   return settings.webhook_signature_key?.trim() || settings.secret_key?.trim() || '';
 }
 
+// Python json.dumps() defaults: ", " / ": " separators and ensure_ascii (\uXXXX for non-ASCII).
+// Sendcloud signs its payload serialized this way, and the platform does not pass the
+// original bytes through (req.rawBody arrives re-serialized), so we rebuild them.
+export function toPythonJson(value: unknown): string {
+  if (value === null || value === undefined) {
+    return 'null';
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map(toPythonJson).join(', ')}]`;
+  }
+  if (typeof value === 'object') {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .map(([key, item]) => `${toPythonJson(key)}: ${toPythonJson(item)}`)
+      .join(', ')}}`;
+  }
+  if (typeof value === 'string') {
+    return JSON.stringify(value).replace(
+      /[\u0080-￿]/g,
+      (char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, '0')}`,
+    );
+  }
+  return JSON.stringify(value);
+}
+
 // Sendcloud-Signature: hex HMAC-SHA256 of the raw body, keyed with the secret key
 export async function verifySignature(
   rawBody: string,

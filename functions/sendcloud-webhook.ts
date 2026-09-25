@@ -5,6 +5,7 @@ import {
   getAppData,
   getSendcloudSettings,
   getSignatureKey,
+  toPythonJson,
   verifySignature,
 } from './lib/sendcloud';
 
@@ -21,7 +22,44 @@ export async function post(req: SwellRequest) {
   const settings = await getSendcloudSettings(swell);
 
   const signature = req.headers.get('sendcloud-signature');
-  if (!(await verifySignature(req.rawBody, signature, getSignatureKey(settings)))) {
+  const signatureKey = getSignatureKey(settings);
+
+  // req.rawBody arrives re-serialized by the platform (pretty-printed JSON), not as the bytes
+  // Sendcloud signed, so also try the serializations Sendcloud may have used.
+  const parsedBody = typeof req.body === 'string' ? safeParse(req.body) : req.body;
+  const candidates: [string, unknown][] = [
+    ['raw', req.rawBody],
+    ['python', parsedBody !== undefined ? toPythonJson(parsedBody) : undefined],
+    ['compact', parsedBody !== undefined ? JSON.stringify(parsedBody) : undefined],
+  ];
+
+  let verifiedWith: string | null = null;
+  for (const [name, candidate] of candidates) {
+    if (typeof candidate === 'string' && (await verifySignature(candidate, signature, signatureKey))) {
+      verifiedWith = name;
+      break;
+    }
+  }
+
+  if (verifiedWith && verifiedWith !== 'raw') {
+    console.log(`Sendcloud: signature verified against ${verifiedWith} JSON body`);
+  }
+
+  if (!verifiedWith) {
+    const headerNames: string[] = [];
+    req.headers.forEach((_value, name) => headerNames.push(name));
+
+    // diagnostics only - no keys or payload contents
+    console.warn('Sendcloud: invalid signature', {
+      has_signature_header: Boolean(signature),
+      signature_length: signature?.length ?? 0,
+      has_signature_key: Boolean(signatureKey),
+      raw_body_type: typeof req.rawBody,
+      raw_body_length: typeof req.rawBody === 'string' ? req.rawBody.length : null,
+      body_type: typeof req.body,
+      body_json_length: typeof req.body === 'string' ? req.body.length : JSON.stringify(req.body ?? null).length,
+      header_names: headerNames,
+    });
     throw new SwellError('Invalid Sendcloud signature', { status: 401 });
   }
 
@@ -157,4 +195,12 @@ async function createSwellShipment(
 
   console.log(`Sendcloud: created shipment ${shipment.id} for order ${order.number}`);
   return shipment.id;
+}
+
+function safeParse(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return undefined;
+  }
 }

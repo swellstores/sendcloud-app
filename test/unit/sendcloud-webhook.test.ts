@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { post } from "../../functions/sendcloud-webhook";
 import { createMockRequest } from "../helpers/mock-request";
 import { SETTINGS, hmacHex, makeOrder, routeGet } from "../helpers/fixtures";
+import { toPythonJson } from "../../functions/lib/sendcloud";
 
 const PARCEL = {
   id: 5001,
@@ -35,7 +36,7 @@ async function setup({
     headers: { "sendcloud-signature": signature ?? (await hmacHex(rawBody, signatureKey)) },
     swell: {
       settings: vi.fn().mockResolvedValue({ sendcloud: settings }),
-      get: routeGet({ "/orders": { results: [{ id: order.id }] }, [`/orders/${order.id}`]: order }),
+      get: routeGet({ "/orders": { results: [order] } }),
       put,
       post: postFn,
     },
@@ -57,6 +58,20 @@ describe("sendcloud-webhook", () => {
     const { req, put } = await setup({ signature: "bad" });
     await expect(post(req)).rejects.toMatchObject({ status: 401 });
     expect(put).not.toHaveBeenCalled();
+  });
+
+  it("verifies against the JSON body when the raw body is not passed through", async () => {
+    const { req } = await setup();
+    (req as any).rawBody = "";
+    await expect(post(req)).resolves.toMatchObject({ updated: true });
+  });
+
+  it("verifies a Python-serialized signature when the platform pretty-prints rawBody", async () => {
+    const payload = { action: "parcel_status_changed", timestamp: 1000, parcel: PARCEL };
+    const { req } = await setup({ payload, signature: await hmacHex(toPythonJson(payload), "sk") });
+    // what the platform actually passes as req.rawBody
+    (req as any).rawBody = JSON.stringify(payload, null, 2);
+    await expect(post(req)).resolves.toMatchObject({ updated: true });
   });
 
   it("verifies with the webhook signature key when set", async () => {

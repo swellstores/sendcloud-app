@@ -80,7 +80,7 @@ swell logs --type function -s sendcloud
 - **Integration tests** (`test/integration/`) are read-only and use your `swell login` session against the test store.
 - **CLI test scaffold:** it pins `vitest` 3.2 but asks for the latest `@cloudflare/vitest-pool-workers`, which now needs vitest 4. The pool is pinned to `~0.12.21`, the last version that works with vitest 3.2.
 - **Public route URL:** the webhook only responds after `swell app push`. Under `swell app dev` it isn't reachable publicly.
-- **Webhook authentication (open issue):** the storefront API requires a public key even for `public: true` routes. An unauthenticated `POST /api/functions/sendcloud/sendcloud-webhook` returns `401 AUTHENTICATION`. With the app's public key in the URL (`https://<public_key>@<store>…`) it returns `permission_error … on 'functions'`. Sendcloud can't send auth headers, so the webhook URL doesn't work until this is resolved on the platform side.
-- **Webhook URL host:** `functions/webhook-url.ts` always builds `https://<store-id>.swell.store/...`. On a local Swell stack (`*.swell.test`) that URL is wrong.
+- **Webhook URL:** Sendcloud reaches the route at `https://<store-id>:<public key>@<store-id>.swell.store/functions/sendcloud/sendcloud-webhook`. That's the store host, with no `/api`, and the key in the URL. Without a key the request returns 404.
+- **Webhook signatures:** the platform doesn't pass the original request bytes to the function. `req.rawBody` arrives re-serialized as `JSON.stringify(body, null, 2)`. So the handler also checks the signature against the parsed body serialized the way Python's `json.dumps()` does it (`toPythonJson`), and against compact JSON. It logs which one matched. Numbers that Sendcloud sends as floats with a trailing `.0` can't be rebuilt exactly and would fail verification.
 
 Listing assets: `assets/icon.png` and `assets/screenshots/*.png` are placeholders, referenced from `images` in `swell.json`.

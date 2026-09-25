@@ -4,6 +4,7 @@ import {
   getSignatureKey,
   getWebhookUrl,
   splitAddress,
+  toPythonJson,
   verifySignature,
 } from "../../functions/lib/sendcloud";
 import { SETTINGS, hmacHex, makeOrder } from "../helpers/fixtures";
@@ -105,5 +106,30 @@ describe("getSignatureKey", () => {
   it("prefers the webhook signature key over the secret key", () => {
     expect(getSignatureKey({ secret_key: "sk" })).toBe("sk");
     expect(getSignatureKey({ secret_key: "sk", webhook_signature_key: " wsk " })).toBe("wsk");
+  });
+});
+
+describe("toPythonJson", () => {
+  it("matches Python json.dumps() output byte for byte", () => {
+    const payload = {
+      action: "parcel_status_changed",
+      timestamp: 1790325265134,
+      parcel: {
+        id: 5001,
+        name: "J\u00fcrgen M\u00fcller",
+        weight: "1.000",
+        tags: [],
+        ok: true,
+        none: null,
+        url: "https://x.y/a/b",
+        emoji: "\u{1F4E6}",
+      },
+    };
+    // reference: python3 -c "import json; print(json.dumps(payload))"
+    expect(toPythonJson(payload)).toBe(
+      '{"action": "parcel_status_changed", "timestamp": 1790325265134, "parcel": {"id": 5001, ' +
+        '"name": "J\\u00fcrgen M\\u00fcller", "weight": "1.000", "tags": [], "ok": true, "none": null, ' +
+        '"url": "https://x.y/a/b", "emoji": "\\ud83d\\udce6"}}',
+    );
   });
 });
