@@ -7,16 +7,28 @@
   "permissions": [],
   "images": [
     {
-      "id": "order-tab",
-      "title": "Sendcloud tab on orders",
-      "description": "Sendcloud order, parcel status and tracking on each order",
-      "image_src": "assets/screenshots/order-tab.png"
+      "id": "settings",
+      "title": "Simple setup",
+      "description": "Add your Sendcloud API keys and integration ID.",
+      "image_src": "assets/screenshots/settings.png"
     },
     {
-      "id": "settings",
-      "title": "Settings",
-      "description": "Sendcloud credentials, sync options and the webhook URL",
-      "image_src": "assets/screenshots/settings.png"
+      "id": "order-sendcloud",
+      "title": "Sendcloud tab on every order",
+      "description": "Sendcloud order ID, parcel status, carrier and tracking link, kept up to date by Sendcloud's webhook.",
+      "image_src": "assets/screenshots/order-sendcloud.png"
+    },
+    {
+      "id": "order-fulfillment",
+      "title": "Automatic fulfillment",
+      "description": "When a label is created in Sendcloud, the order is fulfilled in Swell with the carrier and tracking number.",
+      "image_src": "assets/screenshots/order-fulfillment.png"
+    },
+    {
+      "id": "shipment-dialog",
+      "title": "Shipment with Sendcloud tracking",
+      "description": "The shipment the app creates has the carrier, tracking number and a note with the Sendcloud parcel and tracking link.",
+      "image_src": "assets/screenshots/shipment-dialog.png"
     }
   ]
 }
