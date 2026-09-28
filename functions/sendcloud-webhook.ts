@@ -187,7 +187,8 @@ async function createSwellShipment(
     },
     carrier: parcel.carrier?.code,
     carrier_name: parcel.carrier?.code,
-    service: parcel.shipment?.id ? String(parcel.shipment.id) : undefined,
+    // the dashboard shows `service` in the shipment dialog, so use the readable method name, not the numeric id
+    service: parcel.shipment?.name || (parcel.shipment?.id ? String(parcel.shipment.id) : undefined),
     service_name: parcel.shipment?.name,
     tracking_code: parcel.tracking_number,
     notes: `Sendcloud parcel ${parcel.id}${parcel.tracking_url ? `: ${parcel.tracking_url}` : ''}`,

@@ -48,6 +48,15 @@
   ],
   "views": [
     {
+      "id": "list",
+      "fields": [
+        {
+          "id": "sendcloud_status",
+          "label": "Sendcloud"
+        }
+      ]
+    },
+    {
       "id": "edit",
       "tabs": [
         {

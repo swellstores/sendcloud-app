@@ -107,6 +107,7 @@ describe("sendcloud-webhook", () => {
         items: [{ order_item_id: "item_1", product_id: "prod_1", variant_id: undefined, quantity: 2 }],
         carrier: "postnl",
         tracking_code: "3SABCD123",
+        service: "PostNL Standard",
         service_name: "PostNL Standard",
       }),
     );
