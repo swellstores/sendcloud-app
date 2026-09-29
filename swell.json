@@ -5,6 +5,7 @@
 	"type": "integration",
 	"version": "1.0.0",
 	"support_email": "support@swell.is",
+	"documentation_url": "https://developers.swell.is/app-guides/sendcloud",
 	"permissions": [],
 	"images": [
 		{
