@@ -9,28 +9,28 @@
 	"permissions": [],
 	"images": [
 		{
-			"id": "settings",
-			"title": "Simple setup",
-			"description": "Add your Sendcloud API keys and integration ID.",
-			"image_src": "assets/screenshots/settings.png"
+			"id": "orders-to-sendcloud",
+			"title": "Paid orders, ready to ship",
+			"description": "Paid orders land in Sendcloud's Incoming Orders with the address, items and weights, ready for a label.",
+			"image_src": "assets/screenshots/1-orders-to-sendcloud.png"
 		},
 		{
-			"id": "order-sendcloud",
-			"title": "Sendcloud tab on every order",
-			"description": "Sendcloud order ID, parcel status, carrier and tracking link, kept up to date by Sendcloud's webhook.",
-			"image_src": "assets/screenshots/order-sendcloud.png"
+			"id": "tracking-on-order",
+			"title": "Parcel status on every order",
+			"description": "Sendcloud keeps the status, carrier and tracking link up to date on a Sendcloud tab in Swell.",
+			"image_src": "assets/screenshots/2-tracking-on-the-order.png"
 		},
 		{
-			"id": "order-fulfillment",
-			"title": "Automatic fulfillment",
-			"description": "When a label is created in Sendcloud, the order is fulfilled in Swell with the carrier and tracking number.",
-			"image_src": "assets/screenshots/order-fulfillment.png"
+			"id": "fulfilled-automatically",
+			"title": "Label created, order fulfilled",
+			"description": "The Swell order gets a shipment with the carrier, shipping method and tracking number.",
+			"image_src": "assets/screenshots/3-fulfilled-automatically.png"
 		},
 		{
-			"id": "shipment-dialog",
-			"title": "Shipment with Sendcloud tracking",
-			"description": "The shipment the app creates has the carrier, tracking number and a note with the Sendcloud parcel and tracking link.",
-			"image_src": "assets/screenshots/shipment-dialog.png"
+			"id": "setup",
+			"title": "Connected in a few minutes",
+			"description": "Add your Sendcloud API keys and integration ID, then paste the webhook URL into Sendcloud.",
+			"image_src": "assets/screenshots/4-setup.png"
 		}
 	]
 }
