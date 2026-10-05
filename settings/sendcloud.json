@@ -12,7 +12,7 @@
     {
       "id": "secret_key",
       "label": "Secret Key",
-      "type": "short_text",
+      "type": "secret",
       "description": "Also used to verify the Sendcloud-Signature of incoming webhooks",
       "required": true
     },
@@ -35,7 +35,7 @@
     {
       "id": "webhook_signature_key",
       "label": "Webhook Signature Key",
-      "type": "short_text",
+      "type": "secret",
       "description": "Optional. Only if your Sendcloud integration shows a separate Webhook Signature Key; otherwise the Secret Key is used."
     },
     {
