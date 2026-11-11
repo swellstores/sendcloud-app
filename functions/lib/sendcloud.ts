@@ -1,4 +1,5 @@
 const API_BASE = 'https://panel.sendcloud.sc/api/v3';
+export const API_V2_BASE = 'https://panel.sendcloud.sc/api/v2';
 
 // parcel statuses that mean there is no usable label
 export const NO_LABEL_STATUSES = [999, 1001, 1002]; // no label, being announced, announcement failed
@@ -43,15 +44,16 @@ export function hasCredentials(settings: SendcloudSettings): boolean {
   return Boolean(settings.public_key?.trim() && settings.secret_key?.trim() && settings.integration_id);
 }
 
-async function sendcloudRequest(
+export async function sendcloudRequest(
   settings: SendcloudSettings,
   method: string,
   path: string,
   body?: object,
+  base = API_BASE,
 ): Promise<any> {
   const auth = btoa(`${settings.public_key?.trim()}:${settings.secret_key?.trim()}`);
 
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(`${base}${path}`, {
     method,
     headers: {
       Authorization: `Basic ${auth}`,
