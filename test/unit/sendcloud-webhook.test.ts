@@ -109,7 +109,9 @@ describe("sendcloud-webhook", () => {
   });
 
   it("stores tracking and creates the Swell shipment once the label exists", async () => {
-    const { req, put, post: postFn } = await setup();
+    const { req, put, post: postFn } = await setup({
+      order: makeOrder({ $app: { sendcloud: { sendcloud_order_id: "sc_1" } } }),
+    });
 
     await expect(post(req)).resolves.toEqual({ received: true, order_found: true, updated: true });
 
@@ -125,6 +127,7 @@ describe("sendcloud-webhook", () => {
         $validate_items: true,
       }),
     );
+    expect(postFn.mock.calls[0][1].$notify).toBeUndefined();
     expect(put).toHaveBeenCalledWith("/orders/order_1", {
       $app: {
         sendcloud: {
@@ -143,12 +146,170 @@ describe("sendcloud-webhook", () => {
     });
   });
 
+  it("finds a resent order by order number and creates a shipment for the new parcel", async () => {
+    const { req, post: postFn } = await setup({
+      payload: {
+        action: "parcel_status_changed",
+        timestamp: 3000,
+        parcel: { ...PARCEL, id: 6002, external_order_id: "order_1-2" },
+      },
+      order: makeOrder({
+        $app: {
+          sendcloud: {
+            sendcloud_order_id: 880,
+            sendcloud_order_suffix: 2,
+            sendcloud_status: "Sent to Sendcloud",
+          },
+        },
+      }),
+    });
+
+    await expect(post(req)).resolves.toEqual({ received: true, order_found: true, updated: true });
+
+    expect(postFn).toHaveBeenCalledWith(
+      "/shipments",
+      expect.objectContaining({ order_id: "order_1", tracking_code: "3SABCD123" }),
+    );
+  });
+
+  it("notifies the customer only when that setting is on", async () => {
+    const { req, post: postFn } = await setup({
+      settings: { ...SETTINGS, notify_customer: true },
+      order: makeOrder({ $app: { sendcloud: { sendcloud_order_id: "sc_1" } } }),
+    });
+
+    await post(req);
+
+    expect(postFn.mock.calls[0][1].$notify).toBe("orders.shipped");
+  });
+
+  it("bundel al handmatig verzonden → shipped_elsewhere, geen tweede zending", async () => {
+    const order: any = makeOrder({ $app: { sendcloud: { sendcloud_order_id: "sc_1" } } });
+    order.items = [
+      {
+        id: "pack",
+        delivery: "shipment",
+        quantity: 1,
+        product_id: "bundle",
+        bundle_items: [
+          {
+            id: "component",
+            product_id: "pouch",
+            quantity: 4,
+            quantity_total: 4,
+            quantity_canceled: 0,
+            quantity_delivered: 4,
+            quantity_shipment_delivered: 4,
+          },
+        ],
+      },
+    ];
+    const { req, put, post: postFn } = await setup({ order });
+
+    await expect(post(req)).resolves.toEqual({ received: true, order_found: true, updated: true });
+
+    expect(postFn).not.toHaveBeenCalled();
+    const values = put.mock.calls.at(-1)[1].$app.sendcloud;
+    expect(values.sendcloud_tracking_number).toBe("3SABCD123");
+    expect(values.sendcloud_shipment_id).toBeUndefined();
+    expect(values.sendcloud_shipment_status).toBe("shipped_elsewhere");
+  });
+
+  it("ships each bundle component with its bundle_item_id", async () => {
+    const order: any = makeOrder({ $app: { sendcloud: { sendcloud_order_id: "sc_1" } } });
+    order.items = [
+      {
+        id: "pack",
+        delivery: "shipment",
+        quantity: 1,
+        quantity_shipment_deliverable: 1,
+        product_id: "bundle",
+        bundle_items: [
+          {
+            id: "component",
+            product_id: "pouch",
+            quantity: 4,
+            quantity_total: 4,
+            quantity_shipment_deliverable: 4,
+          },
+        ],
+      },
+    ];
+    const { req, post: postFn } = await setup({ order });
+
+    await post(req);
+
+    expect(postFn).toHaveBeenCalledWith(
+      "/shipments",
+      expect.objectContaining({
+        items: [
+          {
+            order_item_id: "pack",
+            bundle_item_id: "component",
+            product_id: "pouch",
+            quantity: 4,
+          },
+        ],
+      }),
+    );
+  });
+
+  it("does not notify the customer when that setting is off", async () => {
+    const { req, post: postFn } = await setup({
+      settings: { ...SETTINGS, notify_customer: false },
+      order: makeOrder({ $app: { sendcloud: { sendcloud_order_id: "sc_1" } } }),
+    });
+
+    await post(req);
+
+    const body = postFn.mock.calls[0][1];
+    expect(body.$notify).toBeUndefined();
+    expect(body.tracking_code).toBe("3SABCD123");
+  });
+
+  it("creates a shipment for an order this app did not send", async () => {
+    const { req, post: postFn } = await setup();
+
+    await expect(post(req)).resolves.toEqual({ received: true, order_found: true, updated: true });
+
+    expect(postFn).toHaveBeenCalledWith(
+      "/shipments",
+      expect.objectContaining({ order_id: "order_1", $validate_items: true, tracking_code: "3SABCD123" }),
+    );
+  });
+
+  it("stores tracking without a shipment when nothing is left to ship", async () => {
+    const order = makeOrder({ $app: { sendcloud: { sendcloud_order_id: "sc_1" } } });
+    order.items[0].quantity_shipment_deliverable = 0;
+    const { req, put, post: postFn } = await setup({ order });
+
+    await expect(post(req)).resolves.toEqual({ received: true, order_found: true, updated: true });
+
+    expect(postFn).not.toHaveBeenCalled();
+    expect(put).toHaveBeenCalledWith(
+      "/orders/order_1",
+      expect.objectContaining({
+        $app: {
+          sendcloud: expect.objectContaining({
+            sendcloud_tracking_number: "3SABCD123",
+            sendcloud_carrier: "postnl",
+          }),
+        },
+      }),
+    );
+    expect(put.mock.calls[0][1].$app.sendcloud.sendcloud_shipment_id).toBeUndefined();
+  });
+
   it("does not create a shipment when fulfillment is off or there is no label yet", async () => {
-    const off = await setup({ settings: { ...SETTINGS, create_fulfillment: false } });
+    const off = await setup({
+      settings: { ...SETTINGS, create_fulfillment: false },
+      order: makeOrder({ $app: { sendcloud: { sendcloud_order_id: "sc_1" } } }),
+    });
     await post(off.req);
     expect(off.post).not.toHaveBeenCalled();
 
     const noLabel = await setup({
+      order: makeOrder({ $app: { sendcloud: { sendcloud_order_id: "sc_1" } } }),
       payload: {
         action: "parcel_status_changed",
         parcel: { ...PARCEL, tracking_number: null, status: { id: 999, message: "No label" } },
@@ -200,7 +361,7 @@ describe("sendcloud-webhook", () => {
   });
 
   it("notes the order instead of shipping items already shipped elsewhere", async () => {
-    const order = makeOrder();
+    const order = makeOrder({ $app: { sendcloud: { sendcloud_order_id: "sc_1" } } });
     order.items[0].quantity_shipment_deliverable = 0;
     const { req, put, post: postFn } = await setup({ order });
 
@@ -216,7 +377,9 @@ describe("sendcloud-webhook", () => {
 
   it("saves tracking and answers with an error while the order's shipments are locked", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
-    const { req, put, post: postFn } = await setup();
+    const { req, put, post: postFn } = await setup({
+      order: makeOrder({ $app: { sendcloud: { sendcloud_order_id: "sc_1" } } }),
+    });
     postFn.mockRejectedValue(
       Object.assign(new Error("POST /shipments"), {
         name: "SwellError",

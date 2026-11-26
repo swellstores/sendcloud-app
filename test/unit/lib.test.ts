@@ -1,12 +1,19 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   buildOrder,
+  chooseInvoice,
+  customerLocale,
+  pushOrder,
   getSignatureKey,
+  hasSeparateOrderSchedule,
+  isCanceledOrder,
+  isTestOrder,
   splitAddress,
   toPythonJson,
   verifySignature,
+  withSubscriptionPlans,
 } from "../../functions/lib/sendcloud";
-import { SETTINGS, hmacHex, makeOrder } from "../helpers/fixtures";
+import { SETTINGS, hmacHex, jsonResponse, makeOrder } from "../helpers/fixtures";
 
 describe("splitAddress", () => {
   it.each([
@@ -72,6 +79,577 @@ describe("buildOrder", () => {
       type: "shipping_option_code",
       properties: { shipping_option_code: "postnl:standard" },
     });
+  });
+});
+
+describe("isTestOrder", () => {
+  it("accepts only a boolean true on the order or its metadata", () => {
+    expect(isTestOrder({ test: true })).toBe(true);
+    expect(isTestOrder({ metadata: { test: true } })).toBe(true);
+    expect(isTestOrder({ test: false, metadata: { test: "true" } })).toBe(false);
+    expect(isTestOrder({})).toBe(false);
+  });
+});
+
+describe("isCanceledOrder", () => {
+  it("matches status canceled or the canceled flag", () => {
+    expect(isCanceledOrder({ status: "canceled" })).toBe(true);
+    expect(isCanceledOrder({ canceled: true })).toBe(true);
+    expect(isCanceledOrder({ status: "delivery_pending", canceled: false, paid: true })).toBe(false);
+  });
+});
+
+describe("hasSeparateOrderSchedule", () => {
+  it("is true only when order_schedule is set and differs from billing", () => {
+    expect(
+      hasSeparateOrderSchedule({
+        billing_schedule: { interval: "monthly", interval_count: 1 },
+        order_schedule: { interval: "monthly", interval_count: 3 },
+      }),
+    ).toBe(true);
+    expect(
+      hasSeparateOrderSchedule({
+        billing_schedule: { interval: "yearly", interval_count: 1 },
+        order_schedule: null,
+      }),
+    ).toBe(false);
+    expect(
+      hasSeparateOrderSchedule({
+        billing_schedule: { interval: "monthly", interval_count: 3 },
+      }),
+    ).toBe(false);
+    expect(
+      hasSeparateOrderSchedule({
+        billing_schedule: { interval: "monthly" },
+        order_schedule: { interval: "monthly" },
+      }),
+    ).toBe(false);
+  });
+});
+
+function subscriptionItem(overrides: Record<string, any> = {}) {
+  return {
+    id: "item_1",
+    delivery: "shipment",
+    quantity: 1,
+    shipment_weight: 1,
+    price: 35,
+    price_total: 35,
+    product_id: "prod_1",
+    product: { name: "SMPL72", sku: "SMPL72" },
+    purchase_option: { type: "standard", subscription: { plan_id: "plan_1" } },
+    ...overrides,
+  };
+}
+
+async function slipName(order: any, plan: any) {
+  const get = vi.fn(async (url: string) => (String(url).startsWith("/subscription-plans/") ? plan : null));
+  const named = await withSubscriptionPlans({ get } as any, order);
+  const result: any = buildOrder(named, SETTINGS as any, "kg");
+  return { name: result.order_details.order_items.map((item: any) => item.name), description: result.order_details.order_items.map((item: any) => item.description), get };
+}
+
+describe("subscription plan on the packing slip", () => {
+  it("uses the Dutch plan description", async () => {
+    const order = makeOrder({
+      account: { locale: "nl" },
+      items: [subscriptionItem({ variant: { name: "Black" } })],
+    });
+    const { name, description, get } = await slipName(order, {
+      description: "Kwartaalabonnement",
+      name: "Monthly",
+    });
+
+    expect(name).toEqual(["SMPL72 (Kwartaalabonnement)"]);
+    expect(description).toEqual(["Black"]);
+    expect(get).toHaveBeenCalledWith("/subscription-plans/plan_1", { $locale: "nl" });
+  });
+
+  it("uses the English plan description", async () => {
+    const order = makeOrder({
+      account: { locale: "en" },
+      items: [subscriptionItem()],
+    });
+    const { name, get } = await slipName(order, { description: "Quarterly subscription", name: "Monthly" });
+
+    expect(name).toEqual(["SMPL72 (Quarterly subscription)"]);
+    expect(get).toHaveBeenCalledWith("/subscription-plans/plan_1", { $locale: "en" });
+  });
+
+  it("keeps the base plan text when German has no translation", async () => {
+    const order = makeOrder({
+      account: { locale: "de" },
+      items: [subscriptionItem()],
+    });
+    const { name, get } = await slipName(order, { description: "Quarterly subscription", name: "Monthly" });
+
+    expect(name).toEqual(["SMPL72 (Quarterly subscription)"]);
+    expect(get).toHaveBeenCalledWith("/subscription-plans/plan_1", { $locale: "de" });
+  });
+
+  it("removes soft hyphens and other invisible characters", async () => {
+    const order = makeOrder({
+      account: { locale: "nl" },
+      items: [subscriptionItem({ product: { name: "SMPL\u00AD72\u200B" } })],
+    });
+    const { name } = await slipName(order, { description: "Kwartaal\u00ADabonnement", name: "Monthly" });
+
+    expect(name).toEqual(["SMPL72 (Kwartaalabonnement)"]);
+  });
+
+  it("reads the plan from the bundle parent and prefers it to the English plan name", async () => {
+    const order = makeOrder({
+      account: { locale: "nl" },
+      items: [
+        {
+          id: "parent",
+          delivery: null,
+          product: { name: "Family Pack" },
+          purchase_option: {
+            type: "subscription",
+            plan_id: "plan_1",
+            plan_name: "Monthly",
+            plan_description: "Kwartaalabonnement",
+          },
+          bundle_items: [{ id: "child" }],
+        },
+        subscriptionItem({
+          id: "child",
+          product_id: "bottle",
+          product: { name: "SMPL72" },
+          purchase_option: undefined,
+        }),
+      ],
+    });
+    const { name, get } = await slipName(order, {});
+
+    expect(name).toEqual(["SMPL72 (Kwartaalabonnement)"]);
+    expect(get).toHaveBeenCalledWith("/subscription-plans/plan_1", { $locale: "nl" });
+  });
+
+  it("does not add a plan to a one-off item", async () => {
+    const order = makeOrder({
+      account: { locale: "nl" },
+      items: [
+        subscriptionItem(),
+        {
+          id: "once",
+          delivery: "shipment",
+          quantity: 1,
+          price: 120,
+          price_total: 120,
+          product_id: "prod_2",
+          product: { name: "SMPL72" },
+          purchase_option: { type: "standard" },
+        },
+      ],
+    });
+    const { name, get } = await slipName(order, { description: "Kwartaalabonnement" });
+
+    expect(name).toEqual(["SMPL72 (Kwartaalabonnement)", "SMPL72"]);
+    expect(get).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves the name unchanged when the setting is off", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async () => jsonResponse({ data: [{ id: 1 }] }));
+    const order = makeOrder({
+      account: { locale: "nl", email: "jan@example.com" },
+      items: [
+        subscriptionItem({
+          product: { name: "SMPL\u00AD72", sku: "SMPL72" },
+          purchase_option: {
+            type: "subscription",
+            plan_id: "plan_1",
+            plan_description: "Kwartaalabonnement",
+          },
+        }),
+      ],
+    });
+    const get = vi.fn(async (url: string) => {
+      if (url === "/settings/shipments") return { weight_unit: "kg" };
+      if (url === "/products/prod_1") return { name: "SMPL\u00AD72" };
+      return { description: "should-not-be-used" };
+    });
+
+    await pushOrder({ get, put: vi.fn().mockResolvedValue({}) } as any, SETTINGS as any, order, (data) => data);
+
+    const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+    expect(body[0].order_details.order_items[0].name).toBe("SMPL72");
+    expect(get.mock.calls.map((call) => call[0])).not.toContain("/subscription-plans/plan_1");
+    fetchMock.mockRestore();
+  });
+
+  it("uses the account locale when the dashboard order has none", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async () => jsonResponse({ data: [{ id: 1 }] }));
+    const order = makeOrder({
+      account: { id: "acc_1" },
+      items: [
+        subscriptionItem({
+          purchase_option: {
+            type: "subscription",
+            plan_id: "plan_1",
+            plan_name: "Daily",
+            plan_description: "Jaarabonnement",
+          },
+        }),
+      ],
+    });
+    const get = vi.fn(async (url: string) => {
+      if (url === "/settings/shipments") return { weight_unit: "kg" };
+      if (url === "/accounts/acc_1") return { id: "acc_1", locale: "en" };
+      if (url === "/products/prod_1") {
+        return {
+          name: "SMPL72 (en)",
+          purchase_options: {
+            subscription: { plans: [{ id: "plan_1", name: "Daily", description: "Yearly subscription" }] },
+          },
+        };
+      }
+      throw new Error("Resource not found /subscription-plans/plan_1");
+    });
+
+    await pushOrder(
+      { get, put: vi.fn().mockResolvedValue({}) } as any,
+      { ...SETTINGS, show_subscription_plan: true } as any,
+      order,
+      (data) => data,
+    );
+
+    const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+    expect(body[0].order_details.order_items[0].name).toBe("SMPL72 (en) (Yearly subscription)");
+    expect(get).toHaveBeenCalledWith("/accounts/acc_1");
+    expect(get).toHaveBeenCalledWith("/products/prod_1", { $locale: "en", expand: ["variants"] });
+    fetchMock.mockRestore();
+  });
+});
+
+const SHOW_COMPONENTS = { ...SETTINGS, show_bundle_components: true };
+
+function componentOrder(item: Record<string, any>, grandTotal = 480) {
+  return makeOrder({
+    currency: "EUR",
+    grand_total: grandTotal,
+    items: [item],
+  });
+}
+
+function familyPack(overrides: Record<string, any> = {}) {
+  return {
+    id: "family",
+    delivery: "shipment",
+    quantity: 1,
+    price: 480,
+    price_total: 480,
+    shipment_weight: 660,
+    product_id: "family",
+    product: { name: "SMPL72 Family Pack", sku: "SMPL72-4V3-4" },
+    bundle_items: [
+      {
+        id: "pouch",
+        product_id: "smpl",
+        product_name: "SMPL72",
+        quantity: 4,
+        quantity_total: 4,
+        price: 120,
+        shipment_weight: 0,
+        product: { name: "SMPL72", sku: "SMPL72-EM-1", shipment_weight: 165 },
+      },
+    ],
+    ...overrides,
+  };
+}
+
+describe("bundle components on the packing slip", () => {
+  it("replaces one Family Pack with four pouches when the component weight is empty", () => {
+    const order = componentOrder(familyPack());
+    const result: any = buildOrder(order, SHOW_COMPONENTS as any, "g");
+    const plain: any = buildOrder(order, SETTINGS as any, "g");
+    const line = result.order_details.order_items[0];
+
+    expect(result.order_details.order_items).toHaveLength(1);
+    expect(line).toMatchObject({
+      name: "SMPL72 Family Pack → SMPL72",
+      quantity: 4,
+      sku: "SMPL72-EM-1",
+      unit_price: { value: 120, currency: "EUR" },
+      total_price: { value: 480, currency: "EUR" },
+      measurement: { weight: { value: 0.165, unit: "kg" } },
+    });
+    expect(result.shipping_details.measurement.weight.value).toBe(plain.shipping_details.measurement.weight.value);
+    expect(result.payment_details.total_price).toEqual(plain.payment_details.total_price);
+  });
+
+  it("uses quantity_total for two subscribed Family Packs and keeps the plan on the bundle", () => {
+    const order = componentOrder(
+      familyPack({
+        quantity: 2,
+        price: 480,
+        price_total: 960,
+        shipment_weight: 1320,
+        packing_slip_plan: "Kwartaalabonnement",
+        bundle_items: [
+          {
+            id: "pouch",
+            product_id: "smpl",
+            product_name: "SMPL72",
+            quantity: 4,
+            quantity_total: 8,
+            price: 120,
+            shipment_weight: 1320,
+            product: { name: "SMPL72", sku: "SMPL72-EM-1", shipment_weight: 165 },
+          },
+        ],
+      }),
+      960,
+    );
+    const result: any = buildOrder(order, SHOW_COMPONENTS as any, "g");
+    const plain: any = buildOrder(order, SETTINGS as any, "g");
+
+    expect(result.order_details.order_items[0]).toMatchObject({
+      name: "SMPL72 Family Pack → SMPL72 (Kwartaalabonnement)",
+      quantity: 8,
+      sku: "SMPL72-EM-1",
+      unit_price: { value: 120, currency: "EUR" },
+      total_price: { value: 960, currency: "EUR" },
+      measurement: { weight: { value: 0.165, unit: "kg" } },
+    });
+    expect(result.shipping_details.measurement.weight.value).toBe(1.32);
+    expect(result.shipping_details.measurement.weight.value).toBe(plain.shipping_details.measurement.weight.value);
+  });
+
+  it("sends the Investors Bonus component at price 0", () => {
+    const order = componentOrder(
+      {
+        id: "bonus",
+        delivery: "shipment",
+        quantity: 1,
+        price: 0,
+        price_total: 0,
+        shipment_weight: 165,
+        product_id: "bonus",
+        product: { name: "SMPL72 Investors Bonus", sku: "SMPL72-IB-1" },
+        bundle_items: [
+          {
+            id: "pouch",
+            product_id: "smpl",
+            product_name: "SMPL72",
+            quantity: 1,
+            quantity_total: 1,
+            price: 0,
+            shipment_weight: 0,
+            product: { name: "SMPL72", sku: "SMPL72-EM-1", shipment_weight: 165 },
+          },
+        ],
+      },
+      0,
+    );
+    const result: any = buildOrder(order, SHOW_COMPONENTS as any, "g");
+    const plain: any = buildOrder(order, SETTINGS as any, "g");
+
+    expect(result.order_details.order_items[0]).toMatchObject({
+      name: "SMPL72 Investors Bonus → SMPL72",
+      quantity: 1,
+      sku: "SMPL72-EM-1",
+      unit_price: { value: 0, currency: "EUR" },
+      total_price: { value: 0, currency: "EUR" },
+      measurement: { weight: { value: 0.165, unit: "kg" } },
+    });
+    expect(result.shipping_details.measurement.weight.value).toBe(plain.shipping_details.measurement.weight.value);
+  });
+
+  it("lists two different components and multiplies quantity when quantity_total is absent", () => {
+    const order = componentOrder(
+      {
+        id: "kit",
+        delivery: "shipment",
+        quantity: 2,
+        price: 30,
+        price_total: 60,
+        shipment_weight: 300,
+        product_id: "kit",
+        product: { name: "Kit" },
+        bundle_items: [
+          {
+            id: "pouch",
+            product_id: "pouch",
+            quantity: 1,
+            quantity_total: 2,
+            price: 10,
+            shipment_weight: 200,
+            product: { name: "Pouch", sku: "POUCH" },
+          },
+          {
+            id: "bottle",
+            product_id: "bottle",
+            quantity: 1,
+            price: 5,
+            shipment_weight: 0,
+            product: { name: "Bottle", sku: "BOTTLE", shipment_weight: 50 },
+          },
+        ],
+      },
+      60,
+    );
+    const result: any = buildOrder(order, SHOW_COMPONENTS as any, "g");
+    const plain: any = buildOrder(order, SETTINGS as any, "g");
+
+    expect(result.order_details.order_items).toEqual([
+      expect.objectContaining({
+        name: "Kit → Pouch",
+        quantity: 2,
+        sku: "POUCH",
+        unit_price: { value: 10, currency: "EUR" },
+        total_price: { value: 40, currency: "EUR" },
+      }),
+      expect.objectContaining({
+        name: "Kit → Bottle",
+        quantity: 2,
+        sku: "BOTTLE",
+        unit_price: { value: 5, currency: "EUR" },
+        total_price: { value: 20, currency: "EUR" },
+        measurement: { weight: { value: 0.05, unit: "kg" } },
+      }),
+    ]);
+    expect(result.shipping_details.measurement.weight.value).toBe(0.3);
+    expect(result.shipping_details.measurement.weight.value).toBe(plain.shipping_details.measurement.weight.value);
+    const totals = result.order_details.order_items.map((line: any) => line.total_price.value);
+    expect(totals.reduce((sum: number, value: number) => sum + value, 0)).toBe(60);
+  });
+
+  it("puts the rounding remainder on the last component", () => {
+    const order = componentOrder(
+      {
+        id: "kit",
+        delivery: "shipment",
+        quantity: 1,
+        price: 10,
+        price_total: 10,
+        shipment_weight: 3,
+        product_id: "kit",
+        product: { name: "Kit" },
+        bundle_items: [
+          { name: "A", price: 10 },
+          { name: "B", price: 20 },
+          { name: "C", price: 30 },
+        ].map(({ name, price }) => ({
+          id: name,
+          product_id: name,
+          quantity: 1,
+          quantity_total: 1,
+          price,
+          product: { name, sku: name },
+        })),
+      },
+      10,
+    );
+    const result: any = buildOrder(order, SHOW_COMPONENTS as any, "g");
+    const totals = result.order_details.order_items.map((line: any) => line.total_price.value);
+
+    expect(result.order_details.order_items.map((line: any) => line.unit_price.value)).toEqual([10, 20, 30]);
+    expect(totals).toEqual([1.67, 3.33, 5]);
+    expect(totals.reduce((sum: number, value: number) => sum + value, 0)).toBe(10);
+  });
+
+  it("gives a discounted bundle total to its only component", () => {
+    const order = componentOrder(
+      familyPack({
+        price: 480,
+        price_total: 360,
+      }),
+      360,
+    );
+    const result: any = buildOrder(order, SHOW_COMPONENTS as any, "g");
+
+    expect(result.order_details.order_items[0]).toMatchObject({
+      unit_price: { value: 120, currency: "EUR" },
+      total_price: { value: 360, currency: "EUR" },
+    });
+  });
+
+  it("uses the English bundle and component names", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation(async () => jsonResponse({ data: [{ id: 1 }] }));
+    const order = makeOrder({
+      account: { locale: "en", email: "jan@example.com" },
+      items: [
+        familyPack({
+          product: undefined,
+          product_name: "SMPL72 Familie\u00ADpakket",
+          bundle_items: [
+            {
+              id: "pouch",
+              product_id: "smpl",
+              product_name: "SMPL72",
+              quantity: 4,
+              quantity_total: 4,
+              price: 90,
+              shipment_weight: 0,
+            },
+          ],
+        }),
+      ],
+    });
+    const get = vi.fn(async (url: string) => {
+      if (url === "/settings/shipments") return { weight_unit: "g" };
+      if (url === "/products/family") return { name: "SMPL72 Family\u00AD Pack", sku: "SMPL72-4V3-4" };
+      if (url === "/products/smpl") return { name: "SMPL\u00AD72", sku: "SMPL72-EM-1", shipment_weight: 165 };
+      return null;
+    });
+
+    await pushOrder(
+      { get, put: vi.fn().mockResolvedValue({}) } as any,
+      SHOW_COMPONENTS as any,
+      order,
+      (data) => data,
+    );
+
+    const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+    expect(body[0].order_details.order_items[0].name).toBe("SMPL72 Family Pack → SMPL72");
+    expect(get).toHaveBeenCalledWith("/products/smpl", { $locale: "en" });
+    fetchMock.mockRestore();
+  });
+
+  it("keeps the bundle as one line when the setting is off", () => {
+    const order = componentOrder(familyPack());
+    const result: any = buildOrder(order, SETTINGS as any, "g");
+
+    expect(result.order_details.order_items).toEqual([
+      expect.objectContaining({
+        name: "SMPL72 Family Pack",
+        quantity: 1,
+        sku: "SMPL72-4V3-4",
+      }),
+    ]);
+  });
+});
+
+describe("customerLocale", () => {
+  it("uses account.locale, then the order, then the account display locale", () => {
+    expect(customerLocale({ account: { locale: "en, nl" }, display_locale: "de" })).toBe("en");
+    expect(customerLocale({ display_locale: "de", account: { display_locale: "fr" } })).toBe("de");
+    expect(customerLocale({ account: { display_locale: "fr" } })).toBe("fr");
+    expect(customerLocale({ account: {} })).toBeUndefined();
+  });
+});
+
+describe("chooseInvoice", () => {
+  const order = { id: "order_2", date_created: "2026-11-06T10:00:00.000Z" };
+  const earlier = { id: "order_1", date_created: "2026-08-06T10:00:00.000Z" };
+
+  it("picks the invoice a second before the order", () => {
+    const invoice = { id: "inv_1", status: "paid", date_created: "2026-11-06T09:59:59.000Z" };
+    expect(chooseInvoice(order, [invoice], [earlier, order])?.id).toBe("inv_1");
+  });
+
+  it("ignores an invoice outside 26 hours", () => {
+    const invoice = { id: "inv_old", status: "paid", date_created: "2026-10-06T10:00:00.000Z" };
+    expect(chooseInvoice(order, [invoice], [earlier, order])).toBeNull();
+  });
+
+  it("does not claim an invoice that is closer to an earlier order", () => {
+    const invoice = { id: "inv_1", status: "pending", date_created: "2026-11-06T09:00:00.000Z" };
+    const neighbor = { id: "order_9", date_created: "2026-11-06T09:00:00.000Z" };
+    expect(chooseInvoice(order, [invoice], [order, neighbor])).toBeNull();
+    expect(chooseInvoice(neighbor, [invoice], [order, neighbor])?.id).toBe("inv_1");
   });
 });
 

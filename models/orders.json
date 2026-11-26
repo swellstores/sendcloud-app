@@ -7,6 +7,14 @@
       "type": "int",
       "description": "Sendcloud order ID (API v3)"
     },
+    "sendcloud_order_suffix": {
+      "type": "int",
+      "description": "External order id sequence. 1 is the Swell order id; 2 is <id>-2 after a canceled parcel, and so on"
+    },
+    "sendcloud_sync_hash": {
+      "type": "string",
+      "description": "Hash of the lines, quantities, shipping address and name last sent to Sendcloud"
+    },
     "sendcloud_parcel_id": {
       "type": "int",
       "description": "Sendcloud parcel ID"
@@ -44,6 +52,10 @@
     "sendcloud_note": {
       "type": "string",
       "description": "Why no Swell shipment was created for the parcel"
+    },
+    "sendcloud_invoice_id": {
+      "type": "objectid",
+      "description": "Invoice this shipment is held for, when the subscription ships on its own schedule"
     },
     "sendcloud_status_timestamp": {
       "type": "float",

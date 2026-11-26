@@ -64,6 +64,38 @@
       ]
     },
     {
+      "id": "skip_test_orders",
+      "label": "Skip test orders",
+      "type": "boolean",
+      "ui": "toggle",
+      "description": "Skip orders placed in test mode (order.test) and orders with metadata.test set to true. Off by default, so existing stores keep the current behavior.",
+      "default": false
+    },
+    {
+      "id": "hold_separate_order_schedule",
+      "label": "Hold orders from a separate order schedule until their invoice is paid",
+      "type": "boolean",
+      "ui": "toggle",
+      "description": "For an order of a subscription that ships on its own schedule (order_schedule differs from billing_schedule), wait until that shipment's invoice has status paid, and until the subscription is clear of arrears. Arrears means status pastdue or unpaid, or an earlier invoice with status pending or unpaid. A void invoice is ignored. The order then stays at Waiting for overdue payments. The order that created the subscription is sent on the paid or submitted event. A plan with no order_schedule, including a yearly plan, is not held. Send to Sendcloud can send while waiting and notes that on the order.",
+      "default": false
+    },
+    {
+      "id": "show_subscription_plan",
+      "label": "Show the subscription plan on the packing slip",
+      "type": "boolean",
+      "ui": "toggle",
+      "description": "Append the subscription plan to the item name on the packing slip, in the customer's language. One-off items are left unchanged. Off by default, so existing stores keep the current packing slip.",
+      "default": false
+    },
+    {
+      "id": "show_bundle_components",
+      "label": "Show bundle components on the packing slip",
+      "type": "boolean",
+      "ui": "toggle",
+      "description": "Replace a bundle line with one line per component, named Bundle → Component. A subscription plan stays on the bundle name. Component names use the customer's language. The order total and the parcel weight stay the same. Off by default, so existing stores keep the current packing slip.",
+      "default": false
+    },
+    {
       "id": "shipping_option_code",
       "label": "Default shipping option code",
       "type": "short_text",
@@ -83,6 +115,22 @@
       "ui": "toggle",
       "description": "Fulfills the order in Swell with the Sendcloud tracking number",
       "default": true
+    },
+    {
+      "id": "sync_with_swell",
+      "label": "Keep the Sendcloud order in sync with the Swell order",
+      "type": "boolean",
+      "ui": "toggle",
+      "description": "Until a label exists, update the Incoming Order when the Swell order's items, quantities or shipping address change, and remove it when nothing is left to ship. Off by default.",
+      "default": false
+    },
+    {
+      "id": "notify_customer",
+      "label": "Notify the customer when the shipment is created",
+      "type": "boolean",
+      "ui": "toggle",
+      "description": "Sends Swell's orders.shipped notification when the label creates the shipment. Off by default, so existing stores are unchanged.",
+      "default": false
     },
     {
       "id": "enabled",

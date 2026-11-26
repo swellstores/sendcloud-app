@@ -10,6 +10,12 @@
       "readonly": true
     },
     {
+      "id": "sendcloud_order_suffix",
+      "label": "Sendcloud order sequence",
+      "type": "number",
+      "readonly": true
+    },
+    {
       "id": "sendcloud_parcel_id",
       "label": "Parcel ID",
       "type": "number",
@@ -66,6 +72,12 @@
       "label": "Error",
       "type": "long_text",
       "readonly": true
+    },
+    {
+      "id": "sendcloud_invoice_id",
+      "label": "Invoice",
+      "type": "short_text",
+      "readonly": true
     }
   ],
   "views": [
@@ -80,10 +92,42 @@
           "id": "sendcloud_shipment_status",
           "label": "Sendcloud shipment"
         }
+      ],
+      "bulk_actions": [
+        {
+          "id": "check_and_send",
+          "label": "Check and send to Sendcloud",
+          "function": "check-and-send",
+          "loading_label": "Checking orders…",
+          "hint": "Up to 10 orders. Uses the same rules as the automatic send. When orders are sent on payment, an unpaid order is skipped and left unchanged. Holds a separate order schedule until the invoice is paid and nothing is overdue. A held order keeps that status, so a later paid invoice sends it when the order itself may go."
+        },
+        {
+          "id": "send_to_sendcloud",
+          "label": "Send to Sendcloud",
+          "function": "send-to-sendcloud",
+          "loading_label": "Sending to Sendcloud…",
+          "hint": "Sends up to 10 selected orders. Waiting and test orders are sent too. Unpaid and canceled orders are skipped. An order already in Sendcloud is updated, unless it has a label."
+        }
       ]
     },
     {
       "id": "edit",
+      "extra_actions": [
+        {
+          "id": "check_and_send",
+          "label": "Check and send to Sendcloud",
+          "function": "check-and-send",
+          "loading_label": "Checking this order…",
+          "hint": "Uses the same rules as the automatic send. When orders are sent on payment, an unpaid order is skipped and left unchanged. Skips a test or canceled order. Holds a separate order schedule until the invoice is paid and nothing is overdue, and stores that status so a later paid invoice sends the order when the order itself may go."
+        },
+        {
+          "id": "send_to_sendcloud",
+          "label": "Send to Sendcloud",
+          "function": "send-to-sendcloud",
+          "loading_label": "Sending to Sendcloud…",
+          "hint": "Sends this order, or updates it in Sendcloud when it is already there and has no label. After a canceled parcel it creates a new Incoming Order. Unpaid and canceled orders are skipped. Waiting and test orders are sent too. An order with an active label is skipped."
+        }
+      ],
       "tabs": [
         {
           "id": "sendcloud",
@@ -139,6 +183,9 @@
                   "$ne": null
                 }
               }
+            },
+            {
+              "id": "sendcloud_invoice_id"
             },
             {
               "id": "sendcloud_error",

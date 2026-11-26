@@ -89,6 +89,7 @@ export async function post(req: SwellRequest) {
 
   const parcel = payload.parcel;
 
+  // matched by the Swell order number, not by the external order id (<id>, <id>-2, ...)
   if (!parcel.order_number) {
     return { received: true, order_found: false };
   }
@@ -148,7 +149,9 @@ export async function post(req: SwellRequest) {
   let pendingError: ShipmentPending | undefined;
   if (settings.create_fulfillment !== false && hasLabel && !appData.sendcloud_shipment_id) {
     try {
-      values.sendcloud_shipment_id = await createSwellShipment(swell, order, parcel);
+      values.sendcloud_shipment_id = await createSwellShipment(swell, order, parcel, {
+        notify: settings.notify_customer === true,
+      });
       values.sendcloud_shipment_status = SHIPMENT_CREATED;
       values.sendcloud_note = null;
     } catch (err) {
