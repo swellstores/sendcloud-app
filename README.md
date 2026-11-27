@@ -95,3 +95,7 @@ swell logs --type function -s sendcloud
 - **Webhook signatures:** the platform doesn't pass the original request bytes to the function. `req.rawBody` arrives re-serialized as `JSON.stringify(body, null, 2)`. So the handler also checks the signature against the parsed body serialized the way Python's `json.dumps()` does it (`toPythonJson`), and against compact JSON. It logs which one matched. Numbers that Sendcloud sends as floats with a trailing `.0` can't be rebuilt exactly and would fail verification.
 
 Listing assets: `assets/screenshots/*.png` are 3200×1800 listing images that show the Swell dashboard (light theme) with the app on a sample store ("Alder & Co."), referenced from `images` in `swell.json`. `assets/icon.png` is Sendcloud's official app icon (from sendcloud.com), made full-bleed at 512×512, and `assets/image.png` is a 1200×630 social card.
+
+## License
+
+MIT. See [LICENSE](LICENSE). Contributions are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md).

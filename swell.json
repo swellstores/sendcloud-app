@@ -1,5 +1,6 @@
 {
 	"description": "Send orders to Sendcloud",
+	"repository_url": "https://github.com/swellstores/sendcloud-app",
 	"id": "sendcloud",
 	"name": "Sendcloud",
 	"type": "integration",
